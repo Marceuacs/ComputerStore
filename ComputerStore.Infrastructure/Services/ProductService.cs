@@ -33,7 +33,15 @@ public class ProductService : IProductService
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 
-        return dto;
+        return new ProductDto
+        {
+            Id = product.Id,
+            Name = product.Name,
+            Description = product.Description,
+            Price = product.Price,
+            Quantity = product.Quantity,
+            Categories = categories.Select(c => c.Name).ToList()
+        };
     }
 
     public async Task DeleteAsync(int id)
@@ -51,6 +59,7 @@ public class ProductService : IProductService
             .Include(p => p.Categories)
             .Select(p => new ProductDto
             {
+                Id = p.Id,
                 Name = p.Name,
                 Description = p.Description,
                 Price = p.Price,
@@ -69,6 +78,7 @@ public class ProductService : IProductService
 
         return new ProductDto
         {
+            Id = product.Id,
             Name = product.Name,
             Description = product.Description,
             Price = product.Price,
@@ -146,32 +156,41 @@ public class ProductService : IProductService
 
     public async Task<decimal> CalculateDiscountAsync(List<int> productIds)
     {
-        var products = await _context.Products
+        var productsFromDb = await _context.Products
             .Include(p => p.Categories)
             .Where(p => productIds.Contains(p.Id))
             .ToListAsync();
 
-        var grouped = products.GroupBy(p => p.Id);
+        var productCounts = productIds.GroupBy(id => id)
+                                      .ToDictionary(g => g.Key, g => g.Count());
 
-        // Stock check
-        foreach (var group in grouped)
+        var productList = new List<Product>();
+
+        foreach (var kvp in productCounts)
         {
-            var product = group.First();
-            if (group.Count() > product.Quantity)
+            var product = productsFromDb.FirstOrDefault(p => p.Id == kvp.Key);
+            if (product == null) continue;
+
+            if (kvp.Value > product.Quantity)
                 throw new Exception($"Not enough stock for {product.Name}");
+
+            for (int i = 0; i < kvp.Value; i++)
+            {
+                productList.Add(product);
+            }
         }
 
-        decimal total = 0;
-
-        var byCategory = products
+        var byCategory = productList
             .GroupBy(p => p.Categories.FirstOrDefault()?.Name ?? "Unknown");
+
+        decimal total = 0;
 
         foreach (var group in byCategory)
         {
             var list = group.ToList();
             if (list.Count > 1)
             {
-                total += list[0].Price * 0.95m; // 5% discount on first
+                total += list[0].Price * 0.95m; // 5% off first
                 total += list.Skip(1).Sum(p => p.Price);
             }
             else

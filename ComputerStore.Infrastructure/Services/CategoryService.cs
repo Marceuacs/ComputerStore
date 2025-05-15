@@ -26,13 +26,19 @@ public class CategoryService : ICategoryService
         _context.Categories.Add(category);
         await _context.SaveChangesAsync();
 
-        return dto;
+        return new CategoryDto
+        {
+            Id = category.Id,
+            Name = category.Name,
+            Description = category.Description
+        };
     }
 
     public async Task DeleteAsync(int id)
     {
         var category = await _context.Categories.FindAsync(id);
         if (category is null) throw new Exception("Category not found.");
+
         _context.Categories.Remove(category);
         await _context.SaveChangesAsync();
     }
@@ -42,6 +48,7 @@ public class CategoryService : ICategoryService
         return await _context.Categories
             .Select(c => new CategoryDto
             {
+                Id = c.Id,
                 Name = c.Name,
                 Description = c.Description
             }).ToListAsync();
@@ -54,6 +61,7 @@ public class CategoryService : ICategoryService
 
         return new CategoryDto
         {
+            Id = category.Id,
             Name = category.Name,
             Description = category.Description
         };
